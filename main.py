@@ -1,70 +1,93 @@
-import random as r
+import random
+from copy import copy
 from word import *
 
 
-class PhraseGenerator:
-    def __init__(self):
-        self.phrase = []
-        self.verbNotIn = True
-        self.prepNotIn = True
-        self.adjCount = 0
+expressions = [
+    ['predicate', 'addition'],
+    ['predicate', 'definition', 'addition'],
+    ['definition', 'subject'],
+    ['subject', 'preposition', 'condition'],
+    ['definition', 'subject', 'preposition', 'condition'],
+    ['definition', 'subject', 'preposition', 'definition', 'condition'],
+    ['subject', 'predicate'],
+    ['subject', 'predicate', 'addition'],
+    ['subject', 'predicate', 'definition', 'addition'],
+    ['definition', 'subject', 'predicate', 'addition'],
+    ['definition', 'subject', 'predicate', 'definition', 'addition'],
+    ['subject', 'predicate', 'preposition', 'condition'],
+    ['subject', 'predicate', 'definition', 'addition', 'preposition', 'condition'],
+    ['definition', 'subject', 'predicate', 'preposition', 'condition'],
+    ['definition', 'subject', 'predicate', 'definition', 'addition', 'preposition', 'condition'],
+    ['subject', 'predicate', 'preposition', 'definition', 'condition'],
+    ['subject', 'predicate', 'definition', 'addition', 'preposition', 'definition', 'condition'],
+    ['definition', 'subject', 'predicate', 'preposition', 'definition', 'condition'],
+    ['definition', 'subject', 'predicate', 'definition', 'addition', 'preposition', 'definition', 'condition'],
+]
 
-    def start(self):
-        self.generator(r.choice(['SN', 'SA', 'SV']))
+COMP_DICT = {
+    'definition': 'ADJECTIVES',
+    'predicate': 'VERBS',
+    'subject': 'NOUNS',
+    'addition': 'NOUNS',
+    'condition': 'NOUNS',
+    'preposition': 'PREPOSITIONS',
+}
 
-    def generator(self, method):
-        match method:
-            case 'SN':
-                self.phrase.append(r.choice(NOUNS))
-                self.generator('V')
-            case 'SA':
-                self.phrase.append(r.choice(ADJECTIVES))
-                self.adjCount += 1
-                choices = ['N', 'A']
-                self.generator(r.choice(choices))
-            case 'SV':
-                self.phrase.append(r.choice(VERBS))
-                self.verbNotIn = False
-                self.generator(r.choice(['P', 'N']))
-            case 'V':
-                self.phrase.append(r.choice(VERBS))
-                self.verbNotIn = False
-                choices = ['', 'N']
-                if self.prepNotIn:
-                    choices.append('P')
-                self.generator(r.choice(choices))
-            case 'N':
-                self.phrase.append(r.choice(NOUNS))
-                self.adjCount = 0
-                choices = ['']
-                if self.prepNotIn:
-                    choices.append('P')
-                    if self.verbNotIn :
-                        choices.append('V')
-                self.generator(r.choice(choices))
-            case 'P':
-                self.phrase.append(r.choice(PREPOSITIONS))
-                self.prepNotIn = False
-                choices = ['N']
-                if self.adjCount < 2:
-                    choices.append('A')
-                self.generator(r.choice(choices))
-            case 'A':
-                self.phrase.append(r.choice(ADJECTIVES))
-                self.adjCount += 1
-                choices = ['N']
-                if self.adjCount < 2:
-                    choices.append('A')
-                self.generator(r.choice(choices))
+
+def desc(expression, phrase):
+    for idx, role in enumerate(expression):
+        print(role, phrase[idx], phrase[idx].case)
+
+
+def fill_expression(expression):
+    is_addition_in = 'addition' in expression
+    is_subject_in = 'subject' in expression
+    is_predicate_in = 'predicate' in expression
+    is_condition_in = 'condition' in expression
+    is_definition_in = 'definition' in expression
+    phrase = []
+    for role in expression:
+        match role:
+            case 'subject':
+                if is_predicate_in:
+                    phrase.append(copy(random.choice(NOUNS_SUBJ)))
+                else:
+                    phrase.append(copy(random.choice(NOUNS)))
+            case 'predicate':
+                if is_addition_in:
+                    phrase.append(copy(random.choice(VERBS_ACT)))
+                else:
+                    phrase.append(copy(random.choice(VERBS)))
+                phrase[-1].case = int(is_subject_in)
             case _:
-                pass
+                phrase.append(copy(random.choice(WORDS[COMP_DICT[role]])))
+    if is_addition_in:
+        addition_idx = expression.index('addition')
+        predicate_idx = expression.index('predicate')
+        phrase[addition_idx].case = phrase[predicate_idx].next_case
+    if is_condition_in:
+        condition_idx = expression.index('condition')
+        preposition_idx = expression.index('preposition')
+        phrase[condition_idx].case = phrase[preposition_idx].next_case
+    if is_subject_in:
+        subject_idx = expression.index('subject')
+        phrase[subject_idx].case = 0
+    if is_definition_in:
+        for idx, role in enumerate(expression):
+            if role == 'definition':
+                phrase[idx].case = phrase[idx + 1].case
+                phrase[idx].gender = phrase[idx + 1].gender
+    desc(expression, phrase)
+    return phrase
 
 
 if __name__ == '__main__':
-    with open("file.txt", 'a', encoding='utf-8') as f:
-        for _ in range(10):
-            ph = PhraseGenerator()
-            ph.start()
-            print(*ph.phrase, file=f)
-
-
+    with open("file.txt", 'a') as f:
+        for expr in expressions:
+            ph = fill_expression(expr)
+            print(*ph)
+            print()
+            ph = [str(word) for word in ph]
+            outline = ' '.join(ph) + '\n'
+            f.write(outline)
